@@ -27,7 +27,7 @@
 -include("enn.hrl").
 
 -record(state, {
-          layers=[]
+          neurons=[]
          }).
 
 %%====================================================================
@@ -58,7 +58,7 @@ input(Neuron, Input) ->
 %%--------------------------------------------------------------------
 init(Args) ->
     {ok, #state{ 
-       layers=Args
+       neurons=Args
       }
     }.
 
@@ -71,8 +71,8 @@ init(Args) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
-handle_call({input, Input}, _From, #state{layers=L}=State) ->
-    Reply = {ok, (L#neuron.f)(L#neuron.w * Input + L#neuron.b)},
+handle_call({input, Input}, _From, #state{neurons=L}=State) ->
+    Reply = {ok, [get_output(N, Input) || N <- L]},
     {reply, Reply, State}.
 
 %%--------------------------------------------------------------------
@@ -114,15 +114,33 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%--------------------------------------------------------------------
 
+get_output(#neuron{ w=W, b=B, f=F }, Input) ->
+    F(B + lists:sum(lists:zipwith(fun(Wr, Pr) -> Wr * Pr end, W, Input))).
+
+
 -ifdef(TEST).
 
 single_neuron_bias_test() ->
-    {ok, N} = start_link(#neuron{ w=0, b=321, f=fun enn_f:purelin/1 }),
-    {ok, 321} = input(N, 123).
+    {ok, N} = start_link([#neuron{ w=[0], b=321, f=fun enn_f:purelin/1 }]),
+    ?assertEqual({ok, [321]}, input(N, [123])).
 
 single_neuron_weight_test() ->
-    {ok, N} = start_link(#neuron{ w=1, b=0, f=fun enn_f:purelin/1 }),
-    {ok, 123} = input(N, 123).
+    {ok, N} = start_link([#neuron{ w=[1], b=0, f=fun enn_f:purelin/1 }]),
+    ?assertEqual({ok, [123]}, input(N, [123])).
     
+single_neuron_multi_input_test() ->
+    {ok, N} = start_link([#neuron{ w=[1, 2, 3], b=0, f=fun enn_f:purelin/1 }]),
+    ?assertEqual({ok, [28]}, input(N, [6, 5, 4])).
+
+single_neuron_multi_input_with_bias_test() ->
+    {ok, N} = start_link([#neuron{ w=[1.1, 2.2, 3.3], b=-10.5, f=fun enn_f:purelin/1 }]),
+    ?assertEqual({ok, [0.5]}, input(N, [3, 2, 1])).
+
+multiple_neuron_test() ->
+    F=fun enn_f:purelin/1,
+    {ok, N} = start_link([#neuron{w=[1, 2], b=3, f=F}, #neuron{w=[4, 5], b=6, f=F}]),
+    ?assertEqual({ok, [26, 7*4+8*5+6]}, input(N, [7, 8])).
+
+
 
 -endif.
