@@ -9,8 +9,6 @@
 
 %% API
 -export([
-%%          e/1,
-
          purelin/1,
          poslin/1,
          hardlim/1,
@@ -19,7 +17,6 @@
          satlins/1,
          logsig/1,
          tansig/1
-
         ]).
 
 -ifdef(TEST).

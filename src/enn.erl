@@ -23,11 +23,13 @@
 %%====================================================================
 
 %%--------------------------------------------------------------------
-%% Function: new([{Module, term()}]) -> [term()]
+%% Function: new([{Module, Args}]) -> [term()]
 %% Description: Create new layers and building blocks.
 %%--------------------------------------------------------------------
 new(Layers) when is_list(Layers) ->
-    [new(Mod, N) || {Mod, N} <- Layers].
+    [new(Layer) || Layer <- Layers];
+new({Mod, N}) ->
+    new(Mod, N).
 
 %%--------------------------------------------------------------------
 %% Function: new(Module :: atom(), N :: term()) -> term()

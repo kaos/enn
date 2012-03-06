@@ -90,4 +90,49 @@ simple_recurrent_network_test() ->
     ?assertEqual([6], step(N)),
     ?assertEqual([7], step(N)).
 
+apples_and_oranges_hamming_test() ->
+    %% using the enn api to get it tested (and as a working example/how to)
+    %% this test is based on the hamming network in chapter 3 of "Neural Network Design"
+    %% we use three inputs to represent shape, texture and weight
+    %% and two outputs to classify oranges and apples.
+    N = enn:new({enn_network, 
+                 [
+                  %% the feedforward layer
+                  {enn_neuron, 
+                   [
+                    %% the prototype orange
+                    #neuron{w=[1, -1, -1], b=3, f=purelin},
+                    %% and the prototype apple
+                    #neuron{w=[1, 1, -1], b=3, f=purelin}
+                   ]},
+                  %% the recurrent layer
+                  {enn_delay_block,
+                   [
+                    {input, fun enn:input/2},
+                    {ref, enn:new(
+                            {enn_neuron,
+                             [
+                              #neuron{w=[1, -0.5], b=0, f=poslin},
+                              #neuron{w=[-0.5, 1], b=0, f=poslin}
+                             ]}
+                           )}
+                   ]}
+                 ]}
+               ),
+
+    %% test with the oblong orange as input
+    ?assertEqual([4, 2], enn:input(N, [-1, -1, -1])),
+    %% converges to
+    ?assertEqual([3.0, 0], enn:step(N)),
+    %% make sure it is stable
+    ?assertEqual([3.0, 0], enn:step(N)),
+    
+    %% test with an apple as input
+    ?assertEqual([4, 6], enn:input(N, [1, 1, -1])),
+    %% watch it converge...
+    ?assertEqual([1.0, 4.0], enn:step(N)),
+    ?assertEqual([0, 3.5], enn:step(N)),
+    ?assertEqual([0, 3.5], enn:step(N)).
+
+                               
 -endif.
