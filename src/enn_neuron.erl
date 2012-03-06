@@ -13,7 +13,8 @@
 -export([
          start_link/1,
          new/1,
-         input/2
+         input/2,
+         step/1
         ]).
 
 %% gen_server callbacks
@@ -47,6 +48,8 @@ new(Args) ->
 input(Neuron, Input) ->
     gen_server:call(Neuron, {input, Input}).
 
+step(Neuron) ->
+    gen_server:call(Neuron, step).
 
 %%====================================================================
 %% gen_server callbacks
@@ -76,7 +79,12 @@ init(Args) ->
 %%--------------------------------------------------------------------
 handle_call({input, Input}, _From, #state{neurons=L}=State) ->
     Reply = [get_output(N, Input) || N <- L],
-    {reply, Reply, State}.
+    {reply, Reply, State};
+
+handle_call(step, _From, #state{neurons=L}=State) ->
+    % stepping a neuron gives no new output
+    % ... or, should it sustain the last output?
+    {reply, [0 || _ <- L], State}.
 
 %%--------------------------------------------------------------------
 %% Function: handle_cast(Msg, State) -> {noreply, State} |
@@ -162,5 +170,9 @@ multiple_neuron_test() ->
                     {tansig, -0.9468060128462682}
                    ] 
             ].
+
+step_test() ->
+    N = new([#neuron{}]),
+    ?assertEqual([0], step(N)).
 
 -endif.

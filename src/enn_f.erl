@@ -110,7 +110,7 @@ tansig(N) when is_number(N) ->
 purelin_test() ->
     42 = purelin(42).
 
-posln_test() ->
+poslin_test() ->
     0 = poslin(-0.4),
     0.4 = poslin(0.4),
     1.4 = poslin(1.4).
