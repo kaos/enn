@@ -26,19 +26,10 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
--define(e, 2.718281828459045).
 
 %%====================================================================
 %% API
 %%====================================================================
-
-%% e(N) when N >= 0 ->
-%%     e(2, 1, 2, N).
-%% e(Acc, _, _, 0) ->
-%%     Acc;
-%% e(Acc, Div0, Mul, Count) ->
-%%     Div1 = Div0 * Mul,
-%%     e(Acc+(1/Div1), Div1, Mul + 1, Count - 1).
 
 %%--------------------------------------------------------------------
 %% Function: purelin(N) -> N
@@ -87,15 +78,15 @@ satlins(N) when is_number(N) -> N.
 %% Function: logsig(N) -> A
 %% Description: Log-Sigmoid. Output is between 0 and 1.
 %%--------------------------------------------------------------------
-logsig(N) when is_number(N) -> 1/(1+math:pow(?e, -N)).
+logsig(N) when is_number(N) -> 1/(1+math:exp(-N)).
 
 %%--------------------------------------------------------------------
 %% Function: tansig(N) -> A
 %% Description: Hyperbolic tangent sigmoid. Output is between -1 and 1.
 %%--------------------------------------------------------------------
 tansig(N) when is_number(N) -> 
-    En = math:pow(?e, N),
-    E_n = math:pow(?e, -N),
+    En = math:exp(N),
+    E_n = math:exp(-N),
     (En - E_n) / (En + E_n).
 
 

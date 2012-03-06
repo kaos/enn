@@ -77,9 +77,12 @@ two_layers_three_inputs_on_two_neurons_one_output_test() ->
 
 simple_recurrent_network_test() ->
     N = new([
+             %% First (and only) layer
              {enn_delay_block, 
               [
+               %% update fun for D block
                {input, fun enn:input/2},
+               %% reference to pass to update fun
                {ref, enn:new(enn_neuron, [#neuron{w=[1], b=1, f=purelin}])}
               ]}
             ]),
