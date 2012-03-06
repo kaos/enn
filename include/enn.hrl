@@ -2,6 +2,6 @@
 
 -record(neuron, {
           w, % weight
-          b, % bias
+          b=0, % bias
           f % transfer function
          }).

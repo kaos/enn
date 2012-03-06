@@ -34,7 +34,7 @@
 %% API
 %%====================================================================
 %%--------------------------------------------------------------------
-%% Function: start_link(Opts) -> {ok,Pid} | ignore | {error,Error}
+%% Function: start_link(Args) -> {ok,Pid} | ignore | {error,Error}
 %% Description: Starts the server
 %%--------------------------------------------------------------------
 start_link(Args) ->
@@ -115,13 +115,20 @@ code_change(_OldVsn, State, _Extra) ->
 %%--------------------------------------------------------------------
 
 get_output(#neuron{ w=W, b=B, f=F }, Input) ->
-    F(B + lists:sum(lists:zipwith(fun(Wr, Pr) -> Wr * Pr end, W, Input))).
+    transfer_net_input(F, B + lists:sum(lists:zipwith(fun(Wr, Pr) -> Wr * Pr end, W, Input))).
+
+transfer_net_input(F, N) when is_function(F) ->
+    F(N);
+transfer_net_input(F, N) when is_atom(F) ->
+    enn_f:F(N);
+transfer_net_input({M, F}, N) ->
+    M:F(N).
 
 
 -ifdef(TEST).
 
 single_neuron_bias_test() ->
-    {ok, N} = start_link([#neuron{ w=[0], b=321, f=fun enn_f:purelin/1 }]),
+    {ok, N} = start_link([#neuron{ w=[0], b=321, f=purelin }]),
     ?assertEqual({ok, [321]}, input(N, [123])).
 
 single_neuron_weight_test() ->
@@ -129,18 +136,16 @@ single_neuron_weight_test() ->
     ?assertEqual({ok, [123]}, input(N, [123])).
     
 single_neuron_multi_input_test() ->
-    {ok, N} = start_link([#neuron{ w=[1, 2, 3], b=0, f=fun enn_f:purelin/1 }]),
+    {ok, N} = start_link([#neuron{ w=[1, 2, 3], b=0, f={enn_f,purelin} }]),
     ?assertEqual({ok, [28]}, input(N, [6, 5, 4])).
 
 single_neuron_multi_input_with_bias_test() ->
-    {ok, N} = start_link([#neuron{ w=[1.1, 2.2, 3.3], b=-10.5, f=fun enn_f:purelin/1 }]),
+    {ok, N} = start_link([#neuron{ w=[1.1, 2.2, 3.3], b=-10.5, f=purelin }]),
     ?assertEqual({ok, [0.5]}, input(N, [3, 2, 1])).
 
 multiple_neuron_test() ->
-    F=fun enn_f:purelin/1,
-    {ok, N} = start_link([#neuron{w=[1, 2], b=3, f=F}, #neuron{w=[4, 5], b=6, f=F}]),
+    {ok, N} = start_link([#neuron{w=[1, 2], b=3, f=purelin}, #neuron{w=[4, 5], b=6, f=purelin}]),
     ?assertEqual({ok, [26, 7*4+8*5+6]}, input(N, [7, 8])).
-
 
 
 -endif.
