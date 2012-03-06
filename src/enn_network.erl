@@ -8,12 +8,15 @@
 -module(enn_network).
 
 -behaviour(gen_server).
+-behaviour(enn_block).
 
 %% API
 -export([
          start_link/1,
 
+         new/1,
          input/2
+%         step/1
         ]).
 
 %% gen_server callbacks
@@ -40,6 +43,9 @@
 start_link(Args) ->
     gen_server:start_link(?MODULE, Args, []).
 
+new(Args) ->
+    {ok, Ref} = start_link(Args),
+    Ref.
 
 input(Network, Input) ->
     gen_server:call(Network, {input, Input}).
@@ -114,26 +120,26 @@ code_change(_OldVsn, State, _Extra) ->
 -ifdef(TEST).
 
 simple_two_layer_network_test() ->
-    {ok, N} = start_link([
-                          % First layer (Input layer)
-                          {enn_neuron, [#neuron{w=[1.5], b=-0.5, f=purelin}]},
-
-                          % Second layer (Output layer)
-                          {enn_neuron, [#neuron{w=[1.5], b=0.5, f=purelin}]}
-                         ]),
+    N = new([
+             %% First layer (Input layer)
+             {enn_neuron, [#neuron{w=[1.5], b=-0.5, f=purelin}]},
+             
+             %% Second layer (Output layer)
+             {enn_neuron, [#neuron{w=[1.5], b=0.5, f=purelin}]}
+            ]),
     ?assertEqual([6.5], input(N, [3])).
 
 two_layers_three_inputs_on_two_neurons_one_output_test() -> 
-    {ok, N} = start_link([
-                          % First layer (Input layer)
-                          {enn_neuron, [
-                                        #neuron{w=[-1.5, 1, 1.5], b=0, f=purelin},
-                                        #neuron{w=[1, 2, -3], b=2, f=purelin}
-                                       ]},
-                          
-                          % Second layer (Output layer)
-                          {enn_neuron, [#neuron{w=[1.5, -1.5], b=-5, f=purelin}]}
-                         ]),
+    N = new([
+             %% First layer (Input layer)
+             {enn_neuron, [
+                           #neuron{w=[-1.5, 1, 1.5], b=0, f=purelin},
+                           #neuron{w=[1, 2, -3], b=2, f=purelin}
+                          ]},
+             
+             %% Second layer (Output layer)
+             {enn_neuron, [#neuron{w=[1.5, -1.5], b=-5, f=purelin}]}
+            ]),
     ?assertEqual([22.75], input(N, [2, -3, 5])).
-   
+
 -endif.
