@@ -123,4 +123,17 @@ simple_two_layer_network_test() ->
                          ]),
     ?assertEqual([6.5], input(N, [3])).
 
+two_layers_three_inputs_on_two_neurons_one_output_test() -> 
+    {ok, N} = start_link([
+                          % First layer (Input layer)
+                          [
+                           #neuron{w=[-1.5, 1, 1.5], b=0, f=purelin},
+                           #neuron{w=[1, 2, -3], b=2, f=purelin}
+                          ],
+
+                          % Second layer (Output layer)
+                          [#neuron{w=[1.5, -1.5], b=-5, f=purelin}]
+                         ]),
+    ?assertEqual([22.75], input(N, [2, -3, 5])).
+   
 -endif.
