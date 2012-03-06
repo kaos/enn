@@ -12,8 +12,8 @@
 %% API
 -export([
          new/1,
-         input/2
-%         step/1
+         input/2,
+         step/1
         ]).
 
 -ifdef(TEST).
@@ -35,6 +35,8 @@ new(Args) ->
 input(Network, Input) ->
     lists:foldl(fun enn:input/2, Input, Network).
 
+step(Network) ->
+    [0 || _ <- Network].
 
 %%--------------------------------------------------------------------
 %%% Internal functions
