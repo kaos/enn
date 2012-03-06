@@ -7,21 +7,14 @@
 %%%-------------------------------------------------------------------
 -module(enn_network).
 
--behaviour(gen_server).
 -behaviour(enn_block).
 
 %% API
 -export([
-         start_link/1,
-
          new/1,
          input/2
 %         step/1
         ]).
-
-%% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-         terminate/2, code_change/3]).
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
@@ -29,88 +22,19 @@
 
 -include("enn.hrl").
 
--record(state, {
-          layers=[]
-         }).
-
 %%====================================================================
 %% API
 %%====================================================================
 %%--------------------------------------------------------------------
-%% Function: start_link() -> {ok,Pid} | ignore | {error,Error}
-%% Description: Starts the server
+%% Function: new([Block :: enn_block()]) -> term()
+%% Description: Create a newtwork of neural building blocks.
 %%--------------------------------------------------------------------
-start_link(Args) ->
-    gen_server:start_link(?MODULE, Args, []).
-
 new(Args) ->
-    {ok, Ref} = start_link(Args),
-    Ref.
+    enn:new(Args).
 
 input(Network, Input) ->
-    gen_server:call(Network, {input, Input}).
+    lists:foldl(fun enn:input/2, Input, Network).
 
-%%====================================================================
-%% gen_server callbacks
-%%====================================================================
-
-%%--------------------------------------------------------------------
-%% Function: init(Args) -> {ok, State} |
-%%                         {ok, State, Timeout} |
-%%                         ignore               |
-%%                         {stop, Reason}
-%% Description: Initiates the server
-%%--------------------------------------------------------------------
-init(Args) ->
-    {ok, #state{ layers=enn:new(Args) }}.
-
-%%--------------------------------------------------------------------
-%% Function: %% handle_call(Request, From, State) -> {reply, Reply, State} |
-%%                                      {reply, Reply, State, Timeout} |
-%%                                      {noreply, State} |
-%%                                      {noreply, State, Timeout} |
-%%                                      {stop, Reason, Reply, State} |
-%%                                      {stop, Reason, State}
-%% Description: Handling call messages
-%%--------------------------------------------------------------------
-handle_call({input, Input}, _From, #state{layers=L}=State) ->
-    Reply = lists:foldl(fun enn:input/2, Input, L),
-    {reply, Reply, State}.
-
-%%--------------------------------------------------------------------
-%% Function: handle_cast(Msg, State) -> {noreply, State} |
-%%                                      {noreply, State, Timeout} |
-%%                                      {stop, Reason, State}
-%% Description: Handling cast messages
-%%--------------------------------------------------------------------
-handle_cast(_Msg, State) ->
-    {noreply, State}.
-
-%%--------------------------------------------------------------------
-%% Function: handle_info(Info, State) -> {noreply, State} |
-%%                                       {noreply, State, Timeout} |
-%%                                       {stop, Reason, State}
-%% Description: Handling all non call/cast messages
-%%--------------------------------------------------------------------
-handle_info(_Info, State) ->
-    {noreply, State}.
-
-%%--------------------------------------------------------------------
-%% Function: terminate(Reason, State) -> void()
-%% Description: This function is called by a gen_server when it is about to
-%% terminate. It should be the opposite of Module:init/1 and do any necessary
-%% cleaning up. When it returns, the gen_server terminates with Reason.
-%% The return value is ignored.
-%%--------------------------------------------------------------------
-terminate(_Reason, _State) ->
-    ok.
-
-%%--------------------------------------------------------------------
-%% Func: code_change(OldVsn, State, Extra) -> {ok, NewState}
-%% Description: Convert process state when code is changed
-%%--------------------------------------------------------------------
-code_change(_OldVsn, State, _Extra) ->
-    {ok, State}.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -141,5 +65,6 @@ two_layers_three_inputs_on_two_neurons_one_output_test() ->
              {enn_neuron, [#neuron{w=[1.5, -1.5], b=-5, f=purelin}]}
             ]),
     ?assertEqual([22.75], input(N, [2, -3, 5])).
+
 
 -endif.
