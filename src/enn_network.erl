@@ -36,7 +36,14 @@ input(Network, Input) ->
     lists:foldl(fun enn:input/2, Input, Network).
 
 step(Network) ->
-    [0 || _ <- Network].
+    lists:foldl(
+      fun
+          (Layer, undefined) -> enn:step(Layer);
+          (Layer, Input) -> enn:input(Layer, Input)
+      end,
+      undefined,
+      Network).
+
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -68,5 +75,16 @@ two_layers_three_inputs_on_two_neurons_one_output_test() ->
             ]),
     ?assertEqual([22.75], input(N, [2, -3, 5])).
 
+simple_recurrent_network_test() ->
+    N = new([
+             {enn_delay_block, 
+              [
+               {input, fun enn:input/2},
+               {ref, enn:new(enn_neuron, [#neuron{w=[1], b=1, f=purelin}])}
+              ]}
+            ]),
+    ?assertEqual([5], input(N, [5])),
+    ?assertEqual([6], step(N)),
+    ?assertEqual([7], step(N)).
 
 -endif.

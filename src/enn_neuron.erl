@@ -37,8 +37,8 @@ new(Args) ->
 input(Layer, Input) ->
     [get_output(Neuron, Input) || Neuron <- Layer].
 
-step(Layer) ->
-    [0 || _ <- Layer].
+step(_Layer) ->
+    undefined.
 
 
 %%--------------------------------------------------------------------
@@ -93,6 +93,6 @@ multiple_neuron_test() ->
 
 step_test() ->
     N = new([#neuron{}]),
-    ?assertEqual([0], step(N)).
+    ?assertEqual(undefined, step(N)).
 
 -endif.
