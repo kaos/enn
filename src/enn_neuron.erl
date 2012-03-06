@@ -150,5 +150,17 @@ multiple_neuron_test() ->
     {ok, N} = start_link([#neuron{w=[1, 2], b=3, f=purelin}, #neuron{w=[4, 5], b=6, f=purelin}]),
     ?assertEqual([26, 7*4+8*5+6], input(N, [7, 8])).
 
+'P2.3_test'() ->
+    New = fun(F) ->
+                  new([#neuron{w=[3, 2], b=1.2, f=F}])
+          end,
+    [ ?assertEqual([A], input(New(F), [-5, 6])) 
+      || {F, A} <- [
+                    {purelin, -1.8},
+                    {hardlims, -1},
+                    {satlin, 0},
+                    {tansig, -0.9468060128462682}
+                   ] 
+            ].
 
 -endif.

@@ -17,7 +17,8 @@
          hardlims/1,
          satlin/1,
          satlins/1,
-         logsig/1
+         logsig/1,
+         tansig/1
 
         ]).
 
@@ -87,6 +88,15 @@ satlins(N) when is_number(N) -> N.
 %% Description: Log-Sigmoid. Output is between 0 and 1.
 %%--------------------------------------------------------------------
 logsig(N) when is_number(N) -> 1/(1+math:pow(?e, -N)).
+
+%%--------------------------------------------------------------------
+%% Function: tansig(N) -> A
+%% Description: Hyperbolic tangent sigmoid. Output is between -1 and 1.
+%%--------------------------------------------------------------------
+tansig(N) when is_number(N) -> 
+    En = math:pow(?e, N),
+    E_n = math:pow(?e, -N),
+    (En - E_n) / (En + E_n).
 
 
 %%====================================================================
