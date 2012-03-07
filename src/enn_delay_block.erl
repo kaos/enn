@@ -30,7 +30,7 @@
 
 -record(state, {
           input,
-          ref,
+          network,
           a
          }).
 
@@ -67,8 +67,8 @@ step(Ref) ->
 %%--------------------------------------------------------------------
 init(Args) ->
     {ok, #state{ 
-       input=proplists:get_value(input, Args),
-       ref=proplists:get_value(ref, Args)
+       input = proplists:get_value(input, Args),
+       network = proplists:get_value(network, Args)
       }
     }.
 
@@ -83,8 +83,8 @@ init(Args) ->
 %%--------------------------------------------------------------------
 handle_call({input, Input}, _From, State) ->
     {reply, Input, State#state{ a=Input }};
-handle_call(step, _From, #state{ input=Input, ref=Ref, a=A }=State) ->
-    Reply = Input(Ref, A),
+handle_call(step, _From, #state{ input=Input, network=Network, a=A }=State) ->
+    Reply = Input(Network, A),
     {reply, Reply, State#state{ a=Reply }}.
 
 %%--------------------------------------------------------------------
@@ -129,7 +129,7 @@ code_change(_OldVsn, State, _Extra) ->
 -ifdef(TEST).
 
 delay_block_test() ->
-    B = new([{input, fun(Ref, A) -> Ref * A end}, {ref, 2}]),
+    B = new([{input, fun(N, A) -> N * A end}, {network, 2}]),
     ?assertEqual(3, input(B, 3)),
     ?assertEqual(6, step(B)),
     ?assertEqual(12, step(B)).
