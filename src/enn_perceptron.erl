@@ -13,7 +13,9 @@
 -export([
          new/1,
          input/2,
-         step/1
+         step/1,
+
+         learn/2
         ]).
 
 -ifdef(TEST).
@@ -46,6 +48,17 @@ input(Layer, Input) ->
 step(_Layer) ->
     undefined.
 
+%% Perceptron learning rule
+learn(Layer, DataSet) -> learn(Layer, DataSet, []).
+
+learn(Layer, [], E) -> {Layer, lists:reverse(E)};
+learn(Layer, [{P, T}|DataSet], EIn) ->
+    E = lists:zipwith(fun(Ts, As) -> Ts - As end, T, input(Layer, P)),
+    learn(
+      train(Layer, P, E),
+      DataSet,
+      [E|EIn]
+     ).
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -60,6 +73,13 @@ transfer_net_input(F, N) when is_atom(F) ->
     enn_f:F(N);
 transfer_net_input({M, F}, N) ->
     M:F(N).
+
+train(Layer, P, E) ->
+    %% W' = W + E*P ; W(RxS) E(Sx1) P(Rx1) ; R number of inputs, S number of neurons (outputs)
+    %% B' = B + E ; B(Sx1)
+    [ N#neuron{ w=lists:zipwith(fun(W, Pr) -> W + Es * Pr end, W0, P), b=B0 + Es }
+      || {#neuron{ w=W0, b=B0 }=N, Es} <- lists:zip(Layer, E)
+            ].
 
 
 -ifdef(TEST).
@@ -100,5 +120,27 @@ multiple_neuron_test() ->
 step_test() ->
     N = new([#neuron{}]),
     ?assertEqual(undefined, step(N)).
+
+single_neuron_perceptron_learning_test() ->
+    N = new( [#neuron{ w=[1, -0.8], b=0, f=hardlim }] ),
+    DataSet = [
+               {[1, 2], [1]}, 
+               {[-1, 2], [0]}, 
+               {[0, -1], [0]}
+              ],
+    F = fun(_, Nn, true) -> Nn;
+           (F, Nn, false) ->
+                {Next, E} = learn(Nn, DataSet),
+                %% ?debugVal({Next, E}),
+                F(F, Next, lists:all(fun(0.0) -> true; (_) -> false end, lists:flatten(E)))
+        end,
+    N1 = F(F, N, false),
+    %% ?debugVal(N1),
+    [
+     %% doesn't seem like assertMatch works inside list comprehensions...
+     ?assert(T == input(N1, P))
+     || {P, T} <- DataSet
+           ].
+
 
 -endif.

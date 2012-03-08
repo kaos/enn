@@ -1,7 +1,7 @@
 
 
 -record(neuron, {
-          w=[], % weight
+          f=purelin, % transfer (or activation) function
           b=0, % bias
-          f=purelin % transfer (or activation) function
+          w=[] % weight
          }).
