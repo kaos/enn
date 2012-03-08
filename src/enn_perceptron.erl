@@ -121,26 +121,62 @@ step_test() ->
     N = new([#neuron{}]),
     ?assertEqual(undefined, step(N)).
 
+%% data set learning helper
+learn_dataset(Perceptron, DataSet) ->
+    learn_dataset(Perceptron, DataSet, false).
+learn_dataset(Perceptron, DataSet, false) ->
+    {TrainedPerceptron, Error} = learn(Perceptron, DataSet),
+    learn_dataset(
+      TrainedPerceptron, 
+      DataSet, 
+      lists:all(fun(0.0) ->
+                        true;
+                   (_) ->
+                        false
+                end,
+                lists:flatten(Error))
+     );
+learn_dataset(Perceptron, _, true) ->
+    Perceptron.
+
+test_dataset(_, []) ->
+    ok;
+test_dataset(Perceptron, [{P, T}|DataSet]) ->
+    ?assertEqual(T, input(Perceptron, P)),
+    test_dataset(Perceptron, DataSet).
+
 single_neuron_perceptron_learning_test() ->
     N = new( [#neuron{ w=[1, -0.8], b=0, f=hardlim }] ),
-    DataSet = [
-               {[1, 2], [1]}, 
-               {[-1, 2], [0]}, 
-               {[0, -1], [0]}
+    DataSet = [ %% {P, T}
+               {[1, 2], [1.0]}, 
+               {[-1, 2], [0.0]}, 
+               {[0, -1], [0.0]}
               ],
-    F = fun(_, Nn, true) -> Nn;
-           (F, Nn, false) ->
-                {Next, E} = learn(Nn, DataSet),
-                %% ?debugVal({Next, E}),
-                F(F, Next, lists:all(fun(0.0) -> true; (_) -> false end, lists:flatten(E)))
-        end,
-    N1 = F(F, N, false),
+    N1 = learn_dataset(N, DataSet),
+    test_dataset(N1, DataSet).
+
+two_neuron_perceptron_classification_test() ->
+    %% We have two inputs, and need two outputs (neurons) to 
+    %% be able to classify the input into four categories
+    N = new([#neuron{ w=[0, 0], b=0, f=hardlim },
+             #neuron{ w=[0, 0], b=0, f=hardlim }]),
+    DataSet = [ %% {P, T}
+                %% class 1
+                {[1, 1], [0.0, 0.0]},
+                {[1, 2], [0.0, 0.0]},
+                %% class 2
+                {[2, -1], [0.0, 1.0]},
+                {[2, 0], [0.0, 1.0]},
+                %% class 3
+                {[-1, 2], [1.0, 0.0]},
+                {[-2, 1], [1.0, 0.0]},
+                %% class 4
+                {[-1, -1], [1.0, 1.0]},
+                {[-2, -2], [1.0, 1.0]}
+               ],
+    N1 = learn_dataset(N, DataSet),
     %% ?debugVal(N1),
-    [
-     %% doesn't seem like assertMatch works inside list comprehensions...
-     ?assert(T == input(N1, P))
-     || {P, T} <- DataSet
-           ].
+    test_dataset(N1, DataSet).
 
 
 -endif.
