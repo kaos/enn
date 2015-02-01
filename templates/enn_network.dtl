@@ -1,0 +1,4 @@
+{ '{{ network }}',
+  {{ inputs | pprint }},
+  {{ nodes | pprint }}
+}.

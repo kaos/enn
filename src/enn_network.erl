@@ -1,7 +1,7 @@
 -module(enn_network).
 
 %% API
--export([new/2, load/1]).
+-export([new/2, load/1, save/2]).
 
 %% Internal
 -export([run/1]).
@@ -37,6 +37,10 @@ load(Filename) ->
     {ok, Network} = file:script(Filename),
     load_network(Network).
 
+save(Filename, Network) ->
+    Network ! {save, Filename},
+    ok.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Internal
@@ -47,6 +51,9 @@ run(Network) ->
         {input, Levels} ->
             Network1 = trigger(Levels, Network),
             run(Network1);
+        {save, Filename} ->
+            ok = save_network(Filename, Network),
+            run(Network);
         _Other ->
             run(Network)
     end.
@@ -76,6 +83,10 @@ resolve_node_id(Id, [#node{ id = Id, pid = Pid }|_]) -> Pid;
 resolve_node_id(Id, [_|Nodes]) -> resolve_node_id(Id, Nodes);
 resolve_node_id(Id, []) -> throw({unknown_node_id, Id}).
 
+resolve_node_pid(Id, _) when is_atom(Id) -> Id;
+resolve_node_pid(Pid, [#node{ pid = Pid, id = Id }|_]) -> Id;
+resolve_node_pid(Pid, [_|Nodes]) -> resolve_node_pid(Pid, Nodes);
+resolve_node_pid(_Pid, []) -> [].
 
 load_network({Name, Inputs, Nodes}) ->
     true = register(Name, new(Inputs, [define_node(Node) || Node <- Nodes])).
@@ -90,6 +101,14 @@ define_node(Props) ->
                   end,
        links = proplists:get_value(links, Props, [{self(), 1}])
       }.
+
+save_network(Filename, Network) ->
+    {ok, Contents} = enn_network_dtl:render(
+                       [{network, filename:basename(Filename)},
+                        {inputs, [resolve_node_pid(Pid, Network#network.nodes) || Pid <- Network#network.inputs]},
+                        {nodes, [[{id, Node#node.id}, {links, Node#node.links}] || Node <- Network#network.nodes]}],
+                      [{auto_escape, false}]),
+    file:write_file(Filename, Contents).
 
 
 -ifdef(TEST).
