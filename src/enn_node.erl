@@ -75,7 +75,7 @@ test_node(Links) ->
                    true -> 0
                 end
         end,
-    N = create(F, Links).
+    create(F, Links).
 
 test_activity(Activity) ->
     receive
