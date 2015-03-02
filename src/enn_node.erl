@@ -48,9 +48,7 @@ new(Id, AF, Thld) when is_number(Thld) ->
 
 add_source(N, S, W) when is_pid(N), is_pid(S) ->
     N ! {S, source, to_weight(W)},
-    if self() =:= S -> ok;
-       true -> add_target(S, N)
-    end.
+    add_target(S, N).
 
 add_target(N, T) when is_pid(N), is_pid(T) ->
     N ! {T, target},

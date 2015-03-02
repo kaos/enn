@@ -14,16 +14,17 @@ usage() -> io:format("Usage: ~s [1|2|3|...]~n", [escript:script_name()]).
 run([X|Xs]) -> test(X), run(Xs);
 run([]) -> io:format("Done.~n").
 
-test("1") -> test_1();    
+test("1") -> test_1();
+test("2") -> test_2();
 test(X) -> io:format("Unknown test: ~p~n", [X]).
 
 
 %% 6.1
 test_1() ->
+    io:format("6.1 simple neuron test~n"),
     N = enn_node:new(node1, purelin, -1),
     ok = enn_node:add_source(N, self(), random),
     ok = enn_node:add_target(N, self()),
-    io:format("6.1 simple neuron test~n"),
     ok = enn_node:activate(N, 1),
     receive
         {N, activity, A} ->
@@ -31,4 +32,23 @@ test_1() ->
     after
         1000 ->
             io:format("No activity!~n")
+    end.
+
+%% 6.2
+test_2() ->
+    io:format("6.2 simple nn test~n"),
+    {ok, _Network} =
+        enn_network:create(
+          #{
+             sensors => [self()],
+             actuators => [self()],
+             %% 1 layer with a single node
+             layers => [[#{ id => node1, af => purelin, thld => -1}]]
+           }),
+    Node = receive {N, target} -> N end,
+    io:format("activate node ~p~n", [Node]),
+    enn_node:activate(Node, random),
+    receive
+        {Node, activity, A} ->
+            io:format("got node activity: ~p~n", [A])
     end.
