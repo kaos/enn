@@ -1,0 +1,34 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+%%! -pa ebin
+
+main([]) -> usage();
+main(Xs) ->
+    Seed = now(),
+    io:format("Initializing random with seed: ~p~n", [Seed]),
+    random:seed(now()),
+    run(Xs).
+
+usage() -> io:format("Usage: ~s [1|2|3|...]~n", [escript:script_name()]).
+
+run([X|Xs]) -> test(X), run(Xs);
+run([]) -> io:format("Done.~n").
+
+test("1") -> test_1();    
+test(X) -> io:format("Unknown test: ~p~n", [X]).
+
+
+%% 6.1
+test_1() ->
+    N = enn_node:new(node1, purelin, -1),
+    ok = enn_node:add_source(N, self(), random),
+    ok = enn_node:add_target(N, self()),
+    io:format("6.1 simple neuron test~n"),
+    ok = enn_node:activate(N, 1),
+    receive
+        {N, activity, A} ->
+            io:format("Output: ~p~n", [A])
+    after
+        1000 ->
+            io:format("No activity!~n")
+    end.

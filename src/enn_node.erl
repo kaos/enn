@@ -1,20 +1,33 @@
 -module(enn_node).
 
+%% Neuron node
+%%
+%% Start with initial actuator, threshold and no inputs/outputs.
+%%
+%% Register inputs with {Pid, Weight} tuples. Each input will receive
+%% a register output message.
+%%
+%% Send activation as soon as it change.
+%%
+
 %% API
--export([new/2]).
+-export([new/2, new/3, add_source/3, add_target/2, activate/2]).
 
 %% Internal
 -export([run/1]).
 
 -ifdef(TEST).
+-export([dbg/0]).
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
--record(state, {
-          activate :: fun((number()) -> number()),
-          links = [] :: list({pid(), number()}),
-          time = 0 :: integer(),
-          level = 0 :: number()
+-record(node, {
+          id :: term(),
+          af :: fun((float()) -> float()), %% actuator function
+          lvl = 0.0 :: float(), %% activation level
+          thld = 0.0 :: float(),
+          srcs = #{}, %% input sources
+          tgts = [] :: [pid()] %% output targets
          }).
 
 
@@ -22,95 +35,169 @@
 %%% API
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-new(Fun, FwdLinks) ->
-    State = create(Fun, FwdLinks),
-    spawn_link(?MODULE, run, [State]).
+new(Id, AF) -> new(Id, AF, 0.0).
+
+new(Id, AF, Thld) when is_number(Thld) ->
+    Node = #node{
+              id = Id,
+              af = create_activator(AF),
+              thld = to_weight(Thld)
+             },
+    spawn_link(?MODULE, run, [Node]).
 
 
+add_source(N, S, W) when is_pid(N), is_pid(S) ->
+    N ! {S, source, to_weight(W)},
+    if self() =:= S -> ok;
+       true -> add_target(S, N)
+    end.
+
+add_target(N, T) when is_pid(N), is_pid(T) ->
+    N ! {T, target},
+    ok.
+
+activate(N, A) when is_pid(N), is_float(A) ->
+    N ! {self(), activity, A},
+    ok;
+activate(N, A) when is_pid(N) ->
+    activate(N, to_weight(A)).
+
+
+    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Internal
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-run(State) ->
+create_activator(Fun) when is_function(Fun, 1) -> Fun;
+create_activator(Std) when is_atom(Std) -> fun enn_f:Std/1;
+create_activator({M, F}) -> fun M:F/1;
+create_activator({M, F, A}) -> create_activator(apply(M, F, A));
+create_activator(L) when is_list(L) ->
+    lists:foldl(
+      fun (A, F) -> F(create_activator(A)) end,
+      fun (F) -> F end, L).
+    
+to_weight(N) when is_number(N) -> float(N);
+to_weight(random) -> random:uniform() - random:uniform();
+to_weight({M, F, A}) -> to_weight(apply(M, F, A)).
+
+run(Node) ->
     receive
-        {activity, Activity} ->
-            State1 = trigger(Activity, State),
-            run(State1);
-        _Other ->
-            run(State)
+        {S, activity, A} when is_pid(S), is_float(A) ->
+            run(process(A, S, Node));
+        {S, source, W} when is_pid(S), is_float(W) ->
+            run(Node#node{ srcs = maps:put(S, {W, 0.0}, Node#node.srcs) });
+        {T, target} when is_pid(T) ->
+            run(Node#node{ tgts = [T|Node#node.tgts] })
     end.
 
-create(Fun, FwdLinks)
-  when is_function(Fun, 1), is_list(FwdLinks) ->
-    #state{
-       activate = Fun,
-       links = [{Node, W} || {Node, W} <- FwdLinks, is_pid(Node), W /= 0]
-      }.
-
-trigger(Activity, State0) ->
-    State = register_activity(Activity, State0),
-    Output = (State#state.activate)(State#state.level),
-    if Output /= 0 ->
-            Time = State#state.time + 1,
-            [Node ! {activity, {Time, Output * W}} || {Node, W} <- State#state.links],
-            State;
-       true ->
-            State
+process(A, S, #node{ lvl = L0, srcs = Ss } = Node) ->
+    {W, A0} = maps:get(S, Ss),
+    case A * W of
+        A0 -> Node;
+        A1 ->
+            L1 = L0 + A1 - A0,
+            maybe_fire(L0, Node#node{ lvl = L1, srcs = maps:put(S, {W, A1}, Ss) })
     end.
-        
-register_activity({Time, Level}, State0) ->
-    State = #state{ level = Level0 } = set_time(Time, State0),
-    State#state{ level = Level0 + Level }.
 
-set_time(Time, #state{ time = Time0 } = State) when Time > Time0 ->
-    State#state{ time = Time, level = 0 };
-set_time(_, State) -> State.
+%% only trigger output if we've reached our threshold
+maybe_fire(_, #node{ lvl = L, thld = T, tgts = Ts, af = F } = Node)
+  when L >= T ->
+    Msg = {self(), activity, F(L)},
+    [N ! Msg || N <- Ts],
+    Node;
+maybe_fire(L0, #node{ thld = T, tgts = Ts } = Node)
+  when L0 >= T ->
+    Msg = {self(), activity, 0.0},
+    [N ! Msg || N <- Ts],
+    Node;
+maybe_fire(_, Node) -> Node.
 
 
 -ifdef(TEST).
 
-test_node(Links) ->
-    F = fun (I) ->
-                if I >= 1 -> 1;
-                   true -> 0
-                end
-        end,
-    create(F, Links).
+dbg() ->
+    dbg:tracer(),
+    dbg:p(all, call),
+    dbg:tpl(?MODULE, []).
 
-test_activity(Activity) ->
+test_node() ->
+    test_node(#{}).
+
+test_node(Opts) ->
+    O = maps:merge(#{ threshold => 0.0 }, Opts),
+    N = new(test, hardlim, maps:get(threshold, O)),
+    add_source(N, self(), 1.0),
+    add_target(N, self()),
+    N.
+
+test_activity(N, A) ->
     receive
-        {activity, Activity} -> ok;
-        Other -> throw({activity, {expected, Activity}, {actual, Other}})
-    after
-        10 -> none
+        {N, activity, A} -> ok;
+        {N, activity, O} ->
+            {unexpected_activity, {expected, A}, {actual, O}}
+    after 10 ->
+            no_activity
+    end.
+
+stable_activity(N, A) ->
+    stable_activity(N, A, no_activity).
+
+stable_activity(N, A, L) ->
+    case test_activity(N, A) of
+        no_activity -> L;
+        O -> stable_activity(N, A, O)
     end.
     
-create_node_test() ->
-    N = test_node([]),
-    ?assertMatch({state, _, [], 0, 0}, N).
+identity_test() ->
+    N = test_node(),
+    ok = activate(N, 1.0),
+    ok = test_activity(N, 1.0).
 
-time_test() ->
+nochange_test() ->
+    N = test_node(),
+    ok = activate(N, 0.5),
+    ok = test_activity(N, 1.0),
+    ok = activate(N, 0.5),
+    no_activity = test_activity(N, none).
+
+threshold_test() ->
+    N = test_node(#{threshold => 0.5}),
+    ok = activate(N, 0.49),
+    ?assertMatch(no_activity, test_activity(N, none)),
+    ok = activate(N, 0.5),
+    ok = test_activity(N, 1.0),
+
+    %% check that we get notified also when the activity stops
+    ok = activate(N, 0.4),
+    ?assertMatch(ok, test_activity(N, 0.0)).
+    
+    
+xor_test() ->
+    %% create xor network nodes
+    [X1, X2]=Xs = [new(N, hardlim) || N <- [x1, x2]],
+    [Z, Y] = [new(N, hardlim, 0.5) || N <- [z, y]],
+    %% connect nodes
+    [ok = add_source(X, self(), 1.0) || X <- Xs],
+    [ok = add_source(Z, X, 0.4) || X <- Xs],
+    [ok = add_source(Y, X, 0.7) || X <- Xs],
+    ok = add_source(Y, Z, -1.0),
+    ok = add_target(Y, self()),
+    %% run tests
     [begin
-         N = set_time(T, #state{ time = 5, level = 123 }),
-         ?assertMatch(#state{ time = T1, level = L }, N)
-     end || {T, T1, L} <- [{1, 5, 123}, {5, 5, 123}, {8, 8, 0}]].
-
-trigger_node_test() ->
-    N = test_node([{self(), 1.3}]),
-    trigger({5, 1.2}, N),
-    ?assertMatch(ok, test_activity({6, 1.3})).
-
-multi_activation_test() ->
-    N = lists:foldl(
-          fun (A, N0) ->
-                  N = trigger({4, A}, N0),
-                  ?assertMatch(none, test_activity(none)),
-                  N
-          end,
-          test_node([{self(), 1.5}]),
-          [0.2, 0.3, 0.4]),
-    trigger({4, 0.1}, N),
-    ?assertMatch(ok, test_activity({5, 1.5})).
+         ok = activate(X1, I1),
+         ok = activate(X2, I2),
+         case stable_activity(Y, O) of
+             ok -> ok;
+             E ->
+                 throw({E, {I1, I2, O}})
+         end
+     end || {[I1, I2], O} <- 
+                [{[0.0,1.0], 1.0},
+                 {[0.0,0.0], 0.0},
+                 {[1.0,0.0], 1.0},
+                 {[1.0,1.0], 0.0}]
+    ].
 
 
 -endif.
