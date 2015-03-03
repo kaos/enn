@@ -16,6 +16,8 @@ run([]) -> io:format("Done.~n").
 
 test("1") -> test_1();
 test("2") -> test_2();
+test("3") -> test_3();
+test("4") -> test_4();
 test(X) -> io:format("Unknown test: ~p~n", [X]).
 
 
@@ -52,3 +54,22 @@ test_2() ->
         {Node, activity, A} ->
             io:format("got node activity: ~p~n", [A])
     end.
+
+test_3() ->
+    io:format("6.2 simple nn test, Mk-II~n"),
+    {ok, NN} =
+        enn_network:create(
+          #{
+             sensors => [{enn_sensor, rng, []}],
+             actuators => [{enn_actuator, stdout, []}],
+             %% 1 layer with a single node
+             layers => [[#{ id => node1, af => purelin, thld => -1}]]
+           }),
+    [S] = maps:get(sensors, NN),
+    S ! update,
+    receive after 10 -> ok end.
+
+%% 6.6
+test_4() ->
+    io:format("6.6 genotype <-> phenotype mapping~n").
+    
