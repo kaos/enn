@@ -35,12 +35,12 @@ create_layer(Density, Template) when is_integer(Density), Density > 0 ->
     create_layer([maps:merge(Template, #{ id => Id }) || Id <- lists:seq(1, Density)], Template).
 
 create_node(#{ id := Id, af := AF } = Node) ->
-    {Id, enn_node:new(Id, AF, maps:get(thld, Node, 0.0))}.
+    {Id, Node#{ pid => enn_node:new(Id, AF, maps:get(thld, Node, 0.0)) }}.
 
 link_sensor(S, Layer) when is_pid(S) ->
     [begin
          ok = enn_node:add_source(N, S, random)
-     end || N <- maps:values(Layer)],
+     end || #{ pid := N } <- maps:values(Layer)],
     S;
 link_sensor({M, F, A}, Layer) ->
     link_sensor(apply(M, F, A), Layer).
@@ -49,7 +49,7 @@ link_actuator(A, Layer) when is_pid(A) ->
     [begin
          ok = enn_node:add_target(N, A),
          A ! {N, source}
-     end || N <- maps:values(Layer)],
+     end || #{ pid := N } <- maps:values(Layer)],
     A;
 link_actuator({M, F, A}, Layer) ->
     link_actuator(apply(M, F, A), Layer).
