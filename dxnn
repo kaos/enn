@@ -71,5 +71,15 @@ test_3() ->
 
 %% 6.6
 test_4() ->
-    io:format("6.6 genotype <-> phenotype mapping~n").
-    
+    io:format("6.6 genotype <-> phenotype mapping~n"),
+    {ok, PhenoType} =
+        enn_network:create(
+          #{
+             sensors => [{enn_sensor, rng, []}],
+             actuators => [{enn_actuator, stdout, []}],
+             %% 3 layers with 1, 3, 1 nodes per layer
+             layers => [1, 3, 1],
+             node_template => #{ af => purelin, thld => -1 }
+           }),
+    {ok, GenoType} = enn_network:backup(PhenoType),
+    io:format("PhenoType: ~p~nGenoType: ~p~n", [PhenoType, GenoType]).
