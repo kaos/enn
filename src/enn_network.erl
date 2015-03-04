@@ -26,7 +26,7 @@ create(Opts) ->
     {ok, lists:foldl(fun maps:merge/2, #{}, Sensors ++ Actuators ++ Network) }.
 
 backup(NN) ->
-    {ok, [backup(Pid, Phenom) || {Pid, Phenom} <- maps:to_list(NN)]}.
+    {ok, [backup(Pid, Phenom, NN) || {Pid, Phenom} <- maps:to_list(NN)]}.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -77,13 +77,28 @@ phenom_pid(#{ pid := Pid }) when is_pid(Pid) -> Pid;
 phenom_pid(Phenom) when is_function(Phenom, 1) ->
     phenom_pid(Phenom(pid)).
 
-backup(Pid, Phenom) ->
-    {Type, Genom} = Phenom(genom),
-    {Type, backup_genom(Type, Pid, Genom)}.
+phenom_id(Phenom) when is_function(Phenom, 1) ->
+    case Phenom(genom) of
+        {sensor, _} -> sensor;
+        {actuator, _} -> actuator;
+        {node, #{ layer := LId, id := Id }} ->
+                {node, {LId, Id}}
+        end.
 
-backup_genom(node, Pid, Genom) ->
-    maps:merge(Genom, enn_node:backup(Pid));
-backup_genom(_, _, Genom) -> Genom.
+backup(Pid, Phenom, NN) ->
+    {Type, Genom} = Phenom(genom),
+    {Type, backup_genom(Type, Pid, Genom, NN)}.
+
+backup_genom(node, Pid, Genom, NN) ->
+    #{ inputs := Srcs } = G = enn_node:backup(Pid),
+    Inputs = maps:fold(
+               fun (P, {W, _}, M) ->
+                       maps:put(
+                         phenom_id(maps:get(P, NN)),
+                         W, M)
+               end, #{}, Srcs),
+    maps:merge(Genom, G#{ inputs := Inputs });
+backup_genom(_, _, Genom, _) -> Genom.
 
 
 -ifdef(TEST).
