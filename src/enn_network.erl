@@ -15,15 +15,19 @@
 
 create(Opts) ->
     Template = maps:get(node_template, Opts, #{}),
-    Network = [create_layer(L, Template) || L <- maps:get(layers, Opts)],
+    {Network, _} = lists:mapfoldl(
+                     fun (L, LId) ->
+                             {create_layer(L, Template#{ layer => LId }), LId + 1}
+                     end, 1, maps:get(layers, Opts)),
     InputLayer = hd(Network),
     OutputLayer = hd(lists:reverse(Network)),
     Sensors = [link_sensor(S, InputLayer) || S <- maps:get(sensors, Opts, [])],
     Actuators = [link_actuator(A, OutputLayer) || A <- maps:get(actuators, Opts, [])],
-    {ok, #{ network => Network, sensors => Sensors, actuators => Actuators }}.
+    {ok, lists:foldl(fun maps:merge/2, #{}, Sensors ++ Actuators ++ Network) }.
 
-backup(_Network) ->
-    {ok, nyi}.
+backup(NN) ->
+    {ok, [backup(Pid, Phenom) || {Pid, Phenom} <- maps:to_list(NN)]}.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Internal
@@ -34,25 +38,52 @@ create_layer(Layer, Template) when is_list(Layer), length(Layer) > 0 ->
 create_layer(Density, Template) when is_integer(Density), Density > 0 ->
     create_layer([maps:merge(Template, #{ id => Id }) || Id <- lists:seq(1, Density)], Template).
 
-create_node(#{ id := Id, af := AF } = Node) ->
-    {Id, Node#{ pid => enn_node:new(Id, AF, maps:get(thld, Node, 0.0)) }}.
+create_node(#{ af := AF } = Node) ->
+    Pid = enn_node:new(AF, maps:get(thld, Node, 0.0)),
+    {Pid, fun (pid) -> Pid;
+              (genom) -> {node, Node}
+          end}.
 
-link_sensor(S, Layer) when is_pid(S) ->
+link_sensor({M, F, A}=Genom, Layer) ->
+    Pid = apply(M, F, A),
+    link_sensor(
+      fun (pid) -> Pid;
+          (genom) -> {sensor, Genom}
+      end, Layer);
+link_sensor(Sensor, Layer)  ->
+    Pid = phenom_pid(Sensor),
     [begin
-         ok = enn_node:add_source(N, S, random)
-     end || #{ pid := N } <- maps:values(Layer)],
-    S;
-link_sensor({M, F, A}, Layer) ->
-    link_sensor(apply(M, F, A), Layer).
+         ok = enn_node:add_source(phenom_pid(Node), Pid, random)
+     end || Node <- maps:keys(Layer)],
+    maps:put(Pid, Sensor, #{}).
 
-link_actuator(A, Layer) when is_pid(A) ->
+link_actuator({M, F, A}=Genom, Layer) ->
+    Pid = apply(M, F, A),
+    link_actuator(
+      fun (pid) -> Pid;
+          (genom) -> {actuator, Genom}
+      end, Layer);
+link_actuator(Actuator, Layer) ->
+    A = phenom_pid(Actuator),
     [begin
+         N = phenom_pid(Node),
          ok = enn_node:add_target(N, A),
          A ! {N, source}
-     end || #{ pid := N } <- maps:values(Layer)],
-    A;
-link_actuator({M, F, A}, Layer) ->
-    link_actuator(apply(M, F, A), Layer).
+     end || Node <- maps:keys(Layer)],
+    maps:put(A, Actuator, #{}).
+
+phenom_pid(Pid) when is_pid(Pid) -> Pid;
+phenom_pid(#{ pid := Pid }) when is_pid(Pid) -> Pid;
+phenom_pid(Phenom) when is_function(Phenom, 1) ->
+    phenom_pid(Phenom(pid)).
+
+backup(Pid, Phenom) ->
+    {Type, Genom} = Phenom(genom),
+    {Type, backup_genom(Type, Pid, Genom)}.
+
+backup_genom(node, Pid, Genom) ->
+    maps:merge(Genom, enn_node:backup(Pid));
+backup_genom(_, _, Genom) -> Genom.
 
 
 -ifdef(TEST).

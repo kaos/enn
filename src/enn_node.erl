@@ -11,7 +11,8 @@
 %%
 
 %% API
--export([new/2, new/3, add_source/3, add_target/2, activate/2]).
+-export([new/1, new/2, add_source/3, add_target/2, activate/2,
+         backup/1]).
 
 %% Internal
 -export([run/1]).
@@ -22,7 +23,6 @@
 -endif.
 
 -record(node, {
-          id :: term(),
           af :: fun((float()) -> float()), %% actuator function
           lvl = 0.0 :: float(), %% activation level
           thld = 0.0 :: float(),
@@ -35,11 +35,10 @@
 %%% API
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-new(Id, AF) -> new(Id, AF, 0.0).
+new(AF) -> new(AF, 0.0).
 
-new(Id, AF, Thld) when is_number(Thld) ->
+new(AF, Thld) ->
     Node = #node{
-              id = Id,
               af = create_activator(AF),
               thld = to_weight(Thld)
              },
@@ -60,6 +59,14 @@ activate(N, A) when is_pid(N), is_float(A) ->
 activate(N, A) when is_pid(N) ->
     activate(N, to_weight(A)).
 
+backup(N) when is_pid(N) ->
+    N ! {self(), backup},
+    receive
+        {N, backup, Genom} -> Genom
+    after
+        100 ->
+            throw({timeout, {backup, N}})
+    end.
 
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -86,7 +93,10 @@ run(Node) ->
         {S, source, W} when is_pid(S), is_float(W) ->
             run(Node#node{ srcs = maps:put(S, {W, 0.0}, Node#node.srcs) });
         {T, target} when is_pid(T) ->
-            run(Node#node{ tgts = [T|Node#node.tgts] })
+            run(Node#node{ tgts = [T|Node#node.tgts] });
+        {R, backup} ->
+            R ! {self(), backup, genom(Node)},
+            run(Node)
     end.
 
 process(A, S, #node{ lvl = L0, srcs = Ss } = Node) ->
@@ -110,6 +120,9 @@ maybe_fire(L0, #node{ thld = T, tgts = Ts } = Node)
     [N ! Msg || N <- Ts],
     Node;
 maybe_fire(_, Node) -> Node.
+
+genom(#node{ srcs = Srcs }) ->
+    #{ inputs => Srcs }.
 
 
 -ifdef(TEST).
