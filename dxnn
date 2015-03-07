@@ -110,7 +110,7 @@ test_5() ->
     io:format("Phenotype: ~p~n~n", [NN]),
     [begin
          X1 ! {input, V1}, X2 ! {input, V2},
-         receive after 1000 ->
+         receive after 100 ->
                          io:format("applied input ~p : ~p~n", [V1, V2])
                  end
      end || {V1, V2} <- [{0, 0}, {0, 1}, {1, 0}, {1, 1}]].

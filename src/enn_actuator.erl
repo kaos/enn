@@ -40,7 +40,7 @@ stdout_loop(Sources) ->
     end.
 
 stdout_msg(Fmt, Args) ->
-    io:format("~s/stdout[~p]: " ++ Fmt, [?MODULE, self()|Args]).
+    io:format("~p ~s/stdout[~p]: " ++ Fmt, [now(), ?MODULE, self()|Args]).
 
 fwd_loop(Pid) ->
     receive
