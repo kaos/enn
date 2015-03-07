@@ -6,6 +6,11 @@ new(stdout) ->
     spawn_link(
       fun () ->
               stdout_loop([])
+      end);
+new({fwd, Pid}) ->
+    spawn_link(
+      fun () ->
+              fwd_loop(Pid)
       end).
 
 stdout_loop(Sources) ->
@@ -28,3 +33,10 @@ stdout_loop(Sources) ->
 
 stdout_msg(Fmt, Args) ->
     io:format("~s/stdout[~p]: " ++ Fmt, [?MODULE, self()|Args]).
+
+fwd_loop(Pid) ->
+    receive
+        Msg ->
+            Pid ! Msg,
+            fwd_loop(Pid)
+    end.

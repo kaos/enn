@@ -39,7 +39,7 @@ test_1() ->
 %% 6.2
 test_2() ->
     io:format("6.2 simple nn test~n"),
-    Network =
+    _Network =
         enn_network:load(
           [[#{ id => {1, 1}, type => {neuron, [#{}]}, sources => [me] }]],
           #{ me => self() }),

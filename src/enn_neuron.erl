@@ -89,7 +89,11 @@ maybe_fire(L0, #neuron{ thld = T, tgts = Ts } = Neuron)
 maybe_fire(_, Neuron) -> Neuron.
 
 backup(#neuron{ srcs = Srcs }) ->
-    #{ inputs => Srcs }.
+    #{ sources => maps:to_list(
+                    maps:map(
+                      fun (_P, {W, _A}) -> W end,
+                      Srcs))
+     }.
 
 
 -ifdef(TEST).
