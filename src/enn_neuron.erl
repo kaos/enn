@@ -13,7 +13,7 @@
 
 -record(neuron, {
           af = purelin :: fun((float()) -> float()), %% actuator function
-          lvl = 0.0 :: float(), %% activation level
+          lvl = none :: none | float(), %% activation level
           thld = none :: none | float(),
           srcs = #{}, %% input sources
           tgts = [] :: [pid()] %% output targets
@@ -32,19 +32,18 @@ new(Opts) when is_map(Opts) ->
 %%%----------------------------------------
 
 init(Opts) ->
-    #{ af := AF, thld := Thld, bias := Bias } =
+    #{ af := AF, thld := Thld } =
         maps:merge(defaults(), Opts),
     #neuron{
        af = create_activator(AF),
-       lvl = Bias,
+       lvl = none,
        thld = enn_node:to_weight(Thld)
       }.
 
 defaults() ->
     D = #neuron{},
     #{ af => D#neuron.af, 
-       thld => D#neuron.thld,
-       bias => D#neuron.lvl
+       thld => D#neuron.thld
      }.
 
 create_activator(Fun) when is_function(Fun, 1) -> Fun;
@@ -72,21 +71,23 @@ loop(Neuron) ->
 
 process(A, S, #neuron{ lvl = L0, srcs = Ss } = Neuron) ->
     {W, A0} = maps:get(S, Ss),
-    case A * W of
-        A0 -> Neuron;
-        A1 ->
-            L1 = L0 + A1 - A0,
-            maybe_fire(L0, Neuron#neuron{ lvl = L1, srcs = maps:put(S, {W, A1}, Ss) })
-    end.
+    {L1, A1} =
+        case A * W of
+            Aa when L0 == none -> {Aa, Aa};
+            A0 when is_number(L0) -> {L0, A0};
+            Aa when is_number(L0) -> {L0 + Aa - A0, Aa}
+    end,
+    maybe_fire(L0, Neuron#neuron{ lvl = L1, srcs = maps:put(S, {W, A1}, Ss) }).
 
 %% only trigger output if we've reached our threshold
-maybe_fire(_, #neuron{ lvl = L, thld = T, tgts = Ts, af = F } = Neuron)
+maybe_fire(L, #neuron{ lvl = L } = Neuron) -> Neuron;
+maybe_fire(_, #neuron{ lvl = L, thld = T, af = F, tgts = Ts } = Neuron)
   when T == none; L >= T ->
     Msg = {self(), activity, F(L)},
     [N ! Msg || N <- Ts],
     Neuron;
 maybe_fire(L0, #neuron{ thld = T, tgts = Ts } = Neuron)
-  when L0 >= T ->
+  when L0 == none; L0 >= T ->
     Msg = {self(), activity, 0.0},
     [N ! Msg || N <- Ts],
     Neuron;
@@ -152,7 +153,7 @@ nochange_test() ->
 threshold_test() ->
     N = test_neuron(#{ thld => 0.5 }),
     ok = enn_node:activate(N, 0.49),
-    ?assertMatch(no_activity, test_activity(N, none)),
+    ?assertMatch(ok, test_activity(N, 0.0)),
     ok = enn_node:activate(N, 0.5),
     ok = test_activity(N, 1.0),
 

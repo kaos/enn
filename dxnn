@@ -31,6 +31,7 @@ test("1") -> test_1();
 test("2") -> test_2();
 test("3") -> test_3();
 test("4") -> test_4();
+test("5") -> test_5();
 test(X) -> io:format("Unknown test: ~p~n", [X]).
 
 
@@ -93,3 +94,23 @@ test_4() ->
            }),
     GenoType = enn_network:backup(PhenoType),
     io:format("PhenoType: ~p~nGenoType: ~p~n", [PhenoType, GenoType]).
+
+%% 7.6.5
+test_5() ->
+    io:format("7.6.5 \"hellow world\" of NN problem, the XOR operation (with fixed weights; still, no leraning)~n"),
+    #{ 1 := [X1, X2] } = NN =
+        enn_network:load([[#{ id => {1, 1}, type => {sensor, [msg]} },
+                           #{ id => {1, 2}, type => {sensor, [msg]} }],
+                          [#{ id => {2, 1}, type => {neuron, [#{ af => hardlim }]}, sources => [{{1, 1}, 1}] },
+                           #{ id => {2, 1}, type => {neuron, [#{ af => hardlim }]}, sources => [{{1, 2}, 1}] }],
+                          [#{ id => {3, 1}, type => {neuron, [#{ af => hardlim, thld => 0.5 }]}, sources => [{2, 0.4}] }],
+                          [#{ id => {4, 1}, type => {neuron, [#{ af => hardlim, thld => 0.5 }]}, sources => [{2, 0.7}, {3, -1.0}] }],
+                          [#{ id => {5, 1}, type => {actuator, [stdout]}, sources => [{4, random}] }]
+                         ]),
+    io:format("Phenotype: ~p~n~n", [NN]),
+    [begin
+         X1 ! {input, V1}, X2 ! {input, V2},
+         receive after 1000 ->
+                         io:format("applied input ~p : ~p~n", [V1, V2])
+                 end
+     end || {V1, V2} <- [{0, 0}, {0, 1}, {1, 0}, {1, 1}]].
