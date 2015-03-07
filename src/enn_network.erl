@@ -85,7 +85,9 @@ translate_sources_fold(Phenom) ->
                 Ss when is_list(Ss) ->
                     [{S, W} || S <- Ss] ++ Sources;
                 #{ id := SId } ->
-                    [{SId, W}|Sources]
+                    [{SId, W}|Sources];
+                P when is_pid(P) ->
+                    [{P, W}|Sources]
             end
     end.
 

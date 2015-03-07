@@ -11,8 +11,21 @@ main(Xs) ->
 
 usage() -> io:format("Usage: ~s [1|2|3|...]~n", [escript:script_name()]).
 
-run([X|Xs]) -> test(X), run(Xs);
-run([]) -> io:format("Done.~n").
+run([X|Xs]) ->
+    test(X),
+    flush(X),
+    run(Xs);
+run([]) ->
+    io:format("Done.~n").
+
+flush(X) ->
+    receive
+        Msg ->
+            io:format("[~s] got message: ~p~n", [X, Msg]),
+            flush(X)
+    after 100 ->
+            ok
+    end.
 
 test("1") -> test_1();
 test("2") -> test_2();
@@ -31,20 +44,18 @@ test_1() ->
     receive
         {N, activity, A} ->
             io:format("Output: ~p~n", [A])
-    after
-        1000 ->
+    after 1000 ->
             io:format("No activity!~n")
     end.
 
 %% 6.2
 test_2() ->
     io:format("6.2 simple nn test~n"),
-    _Network =
+    #{ {1, 1} := Node } =
         enn_network:load(
-          [[#{ id => {1, 1}, type => {neuron, [#{}]}, sources => [me] }]],
+          [[#{ id => {1, 1}, type => {neuron, [#{}]}, sources => [{me, random}] }]],
           #{ me => self() }),
-    %% we'll get the node as target during load
-    Node = receive {N, target} -> N end,
+
     %% add our selves as target for the node
     enn_node:add_target(Node, self()),
 
@@ -54,6 +65,8 @@ test_2() ->
     receive
         {Node, activity, A} ->
             io:format("got node activity: ~p~n", [A])
+        after 1000 ->
+                io:format("missing node activity.. :/~n")
     end.
 
 test_3() ->
@@ -65,8 +78,7 @@ test_3() ->
                         #{ count => 1, type => {neuron, [#{}]} },
                         #{ count => 1, type => {actuator, [stdout]} }]
            }),
-    S ! update,
-    receive after 10 -> ok end.
+    S ! update.
 
 %% 6.6
 test_4() ->
