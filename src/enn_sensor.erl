@@ -1,8 +1,8 @@
 -module(enn_sensor).
 
--export([rng/0]).
+-export([new/1]).
 
-rng() ->
+new(rng) ->
     spawn_link(
       fun () ->
               rng_loop([])
@@ -14,7 +14,9 @@ rng_loop(Targets) ->
             rng_loop([T|Targets]);
         update ->
             [rng_update(T) || T <- Targets],
-            rng_loop(Targets)
+            rng_loop(Targets);
+        {R, backup} ->
+            R ! {self(), backup, #{}}
     end.
 
 rng_update(Target) ->

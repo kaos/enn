@@ -1,8 +1,8 @@
 -module(enn_actuator).
 
--export([stdout/0]).
+-export([new/1]).
 
-stdout() ->
+new(stdout) ->
     spawn_link(
       fun () ->
               stdout_loop([])
@@ -10,7 +10,7 @@ stdout() ->
 
 stdout_loop(Sources) ->
     receive
-        {S, source} ->
+        {S, source, _Weight} ->
             stdout_msg("accept input from ~p~n", [S]),
             stdout_loop([S|Sources]);
         {S, activity, A} ->
@@ -18,6 +18,11 @@ stdout_loop(Sources) ->
                 [] -> stdout_msg("activity from ~p: ~p~n", [S, A]);
                 _  -> stdout_msg("unexpected activity from: ~p (~p)~n", [S, A])
             end,
+            stdout_loop(Sources);
+        {R, backup} ->
+            R ! {self(), backup, #{}};
+        Msg ->
+            stdout_msg("unexpected message: ~p~n", [Msg]),
             stdout_loop(Sources)
     end.
 

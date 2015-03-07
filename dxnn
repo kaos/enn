@@ -24,7 +24,7 @@ test(X) -> io:format("Unknown test: ~p~n", [X]).
 %% 6.1
 test_1() ->
     io:format("6.1 simple neuron test~n"),
-    N = enn_node:new(node1, purelin, -1),
+    N = enn_node:new({neuron, [#{}]}),
     ok = enn_node:add_source(N, self(), random),
     ok = enn_node:add_target(N, self()),
     ok = enn_node:activate(N, 1),
@@ -39,15 +39,16 @@ test_1() ->
 %% 6.2
 test_2() ->
     io:format("6.2 simple nn test~n"),
-    {ok, _Network} =
-        enn_network:create(
-          #{
-             sensors => [self()],
-             actuators => [self()],
-             %% 1 layer with a single node
-             layers => [[#{ id => node1, af => purelin, thld => -1}]]
-           }),
+    Network =
+        enn_network:load(
+          [[#{ id => {1, 1}, type => {neuron, [#{}]}, sources => [me] }]],
+          #{ me => self() }),
+    %% we'll get the node as target during load
     Node = receive {N, target} -> N end,
+    %% add our selves as target for the node
+    enn_node:add_target(Node, self()),
+
+    %% activate the node
     io:format("activate node ~p~n", [Node]),
     enn_node:activate(Node, random),
     receive
@@ -57,29 +58,26 @@ test_2() ->
 
 test_3() ->
     io:format("6.2 simple nn test, Mk-II~n"),
-    {ok, NN} =
-        enn_network:create(
+    #{ {1, 1} := S } =
+        enn_network:new(
           #{
-             sensors => [{enn_sensor, rng, []}],
-             actuators => [{enn_actuator, stdout, []}],
-             %% 1 layer with a single node
-             layers => [[#{ id => node1, af => purelin, thld => -1}]]
+             layers => [#{ count => 1, type => {sensor, [rng]} },
+                        #{ count => 1, type => {neuron, [#{}]} },
+                        #{ count => 1, type => {actuator, [stdout]} }]
            }),
-    [S] = maps:get(sensors, NN),
     S ! update,
     receive after 10 -> ok end.
 
 %% 6.6
 test_4() ->
     io:format("6.6 genotype <-> phenotype mapping~n"),
-    {ok, PhenoType} =
-        enn_network:create(
+    PhenoType =
+        enn_network:new(
           #{
-             sensors => [{enn_sensor, rng, []}],
-             actuators => [{enn_actuator, stdout, []}],
-             %% 3 layers with 1, 3, 1 nodes per layer
-             layers => [1, 3, 1],
-             node_template => #{ af => purelin, thld => -1 }
+             layers => [#{ count => 1, type => {sensor, [rng]} },
+                        %% 3 layers with 1, 3, 1 nodes per layer
+                        #{ count => [1, 3, 1], type => {neuron, [#{}]} },
+                        #{ count => 1, type => {actuator, [stdout]} }]
            }),
-    {ok, GenoType} = enn_network:backup(PhenoType),
+    GenoType = enn_network:backup(PhenoType),
     io:format("PhenoType: ~p~nGenoType: ~p~n", [PhenoType, GenoType]).
