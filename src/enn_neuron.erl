@@ -12,7 +12,7 @@
 -endif.
 
 -record(neuron, {
-          af :: fun((float()) -> float()), %% actuator function
+          af = purelin :: fun((float()) -> float()), %% actuator function
           lvl = 0.0 :: float(), %% activation level
           thld = none :: none | float(),
           srcs = #{}, %% input sources
@@ -41,7 +41,11 @@ init(Opts) ->
       }.
 
 defaults() ->
-    #{ af => purelin, thld => none, bias => 0.0 }.
+    D = #neuron{},
+    #{ af => D#neuron.af, 
+       thld => D#neuron.thld,
+       bias => D#neuron.lvl
+     }.
 
 create_activator(Fun) when is_function(Fun, 1) -> Fun;
 create_activator(Std) when is_atom(Std) -> fun enn_f:Std/1;

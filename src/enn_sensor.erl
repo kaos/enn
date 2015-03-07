@@ -2,11 +2,16 @@
 
 -export([new/1]).
 
+%%%----------------------------------------
+
+%% activate using random numbers on each 'update' message received
 new(rng) ->
     spawn_link(
       fun () ->
               rng_loop([])
       end).
+
+%%%----------------------------------------
 
 rng_loop(Targets) ->
     receive

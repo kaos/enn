@@ -2,16 +2,24 @@
 
 -export([new/1]).
 
+%%%----------------------------------------
+
+%% Dump activity to stdout
 new(stdout) ->
     spawn_link(
       fun () ->
               stdout_loop([])
       end);
+
+%% forward activity to pid
 new({fwd, Pid}) ->
     spawn_link(
       fun () ->
               fwd_loop(Pid)
       end).
+
+
+%%%----------------------------------------
 
 stdout_loop(Sources) ->
     receive

@@ -13,17 +13,23 @@
 %%% API
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Create and initialize new network
 new(Spec) ->
     Genom = create(Spec),
     load(Genom).
 
+%% Create new network
 create(#{ layers := Layers }) ->
     create_layers(Layers, 1, [], []).
 
+%% Initialize a network
 load(Genom) -> load(Genom, #{}).
+
+%% Load additional genom to existing network
 load(Genom, Phenom) ->
     link_nodes(lists:foldr(fun load_layer/2, Phenom, Genom)).
 
+%% Get genom describing a running network
 backup(Phenom) ->
     backup_layer(1, Phenom, []).
 
@@ -111,22 +117,6 @@ backup_node(N, Phenom) ->
 translate_backup(#{ sources := Sources } = B, Phenom) ->
     B#{ sources := translate_sources(Sources, Phenom) };
 translate_backup(B, _) -> B.
-
-
-%% backup(Pid, Genom, Phenom) ->
-    
-%%     {Type, backup_genom(Type, Pid, Genom, NN)}.
-
-%% backup_genom(node, Pid, Genom, NN) ->
-%%     #{ inputs := Srcs } = G = enn_node:backup(Pid),
-%%     Inputs = maps:fold(
-%%                fun (P, {W, _}, M) ->
-%%                        maps:put(
-%%                          phenom_id(maps:get(P, NN)),
-%%                          W, M)
-%%                end, #{}, Srcs),
-%%     maps:merge(Genom, G#{ inputs := Inputs });
-%% backup_genom(_, _, Genom, _) -> Genom.
 
 
 -ifdef(TEST).
