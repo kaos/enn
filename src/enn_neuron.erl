@@ -14,6 +14,7 @@
 -record(neuron, {
           af = purelin :: fun((float()) -> float()), %% actuator function
           lvl = none :: none | float(), %% activation level
+          bias = 0.0 :: float(),
           thld = none :: none | float(),
           srcs = #{}, %% input sources
           tgts = [] :: [pid()] %% output targets
@@ -32,17 +33,19 @@ new(Opts) when is_map(Opts) ->
 %%%----------------------------------------
 
 init(Opts) ->
-    #{ af := AF, thld := Thld } =
+    #{ af := AF, bias := Bias, thld := Thld } =
         maps:merge(defaults(), Opts),
     #neuron{
        af = create_activator(AF),
        lvl = none,
+       bias = enn_node:to_weight(Bias),
        thld = enn_node:to_weight(Thld)
       }.
 
 defaults() ->
     D = #neuron{},
     #{ af => D#neuron.af, 
+       bias => D#neuron.bias,
        thld => D#neuron.thld
      }.
 
@@ -73,7 +76,7 @@ process(A, S, #neuron{ lvl = L0, srcs = Ss } = Neuron) ->
     {W, A0} = maps:get(S, Ss),
     {L1, A1} =
         case A * W of
-            Aa when L0 == none -> {Aa, Aa};
+            Aa when L0 == none -> {Aa + Neuron#neuron.bias, Aa};
             A0 when is_number(L0) -> {L0, A0};
             Aa when is_number(L0) -> {L0 + Aa - A0, Aa}
     end,
@@ -164,8 +167,8 @@ threshold_test() ->
     
 xor_test() ->
     %% create xor network neurons
-    [X1, X2]=Xs = [new(#{ af => hardlim }) || _ <- [x1, x2]],
-    [Z, Y] = [new(#{ af => hardlim, thld => 0.5 }) || _ <- [z, y]],
+    [X1, X2]=Xs = [new(#{ af => hardlim, bias => -0.01 }) || _ <- [x1, x2]],
+    [Z, Y] = [new(#{ af => hardlim, bias => -0.01, thld => 0.5 }) || _ <- [z, y]],
     %% connect neurons
     [ok = enn_node:add_source(X, self(), 1.0) || X <- Xs],
     [ok = enn_node:add_source(Z, X, 0.4) || X <- Xs],
