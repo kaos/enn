@@ -9,7 +9,6 @@
 
 %% API
 -export([
-         bias/1,
          purelin/1,
          poslin/1,
          hardlim/1,
@@ -30,15 +29,6 @@
 %%====================================================================
 
 %%--------------------------------------------------------------------
-%% Function: bias(F) -> F'(B) -> F"(N) -> N
-%% Description: add bias B to N before applying F
-%%--------------------------------------------------------------------
-bias(F) when is_function(F, 1) ->
-    fun (B) ->
-            fun (N) -> F(B + N) end
-    end.
-
-%%--------------------------------------------------------------------
 %% Function: purelin(N) -> N
 %% Description: a pure linear transfer function
 %%--------------------------------------------------------------------
@@ -55,15 +45,15 @@ poslin(N) -> float(N).
 %% Function: hardlim(N) -> A
 %% Description: Hard limit. Output is either 0 or 1.
 %%--------------------------------------------------------------------
-hardlim(N) when N =< 0.0 -> 0.0;
-hardlim(N) when N > 0.0 -> 1.0.
+hardlim(N) when N < 0.0 -> 0.0;
+hardlim(N) when N >= 0.0 -> 1.0.
     
 %%--------------------------------------------------------------------
 %% Function: hardlims(N) -> A
 %% Description: Symmetrical hard limit. Output is either -1 or 1.
 %%--------------------------------------------------------------------
-hardlims(N) when N =< 0.0 -> -1.0;
-hardlims(N) when N > 0.0 -> 1.0.
+hardlims(N) when N < 0.0 -> -1.0;
+hardlims(N) when N >= 0.0 -> 1.0.
 
 %%--------------------------------------------------------------------
 %% Function: satlin(N) -> A
@@ -105,9 +95,6 @@ tansig(N) when is_number(N) ->
 
 -ifdef(TEST).
 
-bias_test() ->
-    42.0 = ((bias(fun purelin/1))(7))(35).
-    
 purelin_test() ->
     42.0 = purelin(42).
 
@@ -120,7 +107,7 @@ hardlim_test() ->
     0.0 = hardlim(-5),
     0.0 = hardlim(-1),
     0.0 = hardlim(-0.0001),
-    0.0 = hardlim(0),
+    1.0 = hardlim(0),
     1.0 = hardlim(0.0001),
     1.0 = hardlim(1),
     1.0 = hardlim(12).
@@ -128,7 +115,7 @@ hardlim_test() ->
 hardlims_test() ->
     -1.0 = hardlims(-5.5),
     -1.0 = hardlims(-0.1),
-    -1.0 = hardlims(0.0),
+    1.0 = hardlims(0.0),
     1.0 = hardlims(2.2).
 
 satlin_test() ->
