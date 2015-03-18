@@ -27,16 +27,9 @@ flush(X) ->
             ok
     end.
 
-test("1") -> test_1();
-test("2") -> test_2();
-test("3") -> test_3();
-test("4") -> test_4();
-test("5") -> test_5();
-test(X) -> io:format("Unknown test: ~p~n", [X]).
-
 
 %% 6.1
-test_1() ->
+test("1") ->
     io:format("6.1 simple neuron test~n"),
     N = enn_node:new({neuron, [#{}]}),
     ok = enn_node:add_source(N, self(), random),
@@ -47,10 +40,10 @@ test_1() ->
             io:format("Output: ~p~n", [A])
     after 1000 ->
             io:format("No activity!~n")
-    end.
+    end;
 
 %% 6.2
-test_2() ->
+test("2") ->
     io:format("6.2 simple nn test~n"),
     #{ {1, 1} := Node } =
         enn_network:load(
@@ -68,9 +61,9 @@ test_2() ->
             io:format("got node activity: ~p~n", [A])
         after 1000 ->
                 io:format("missing node activity.. :/~n")
-    end.
+    end;
 
-test_3() ->
+test("3") ->
     io:format("6.2 simple nn test, Mk-II~n"),
     #{ {1, 1} := S } =
         enn_network:new(
@@ -79,10 +72,10 @@ test_3() ->
                         #{ count => 1, type => {neuron, [#{}]} },
                         #{ count => 1, type => {actuator, [stdout]} }]
            }),
-    S ! update.
+    S ! update;
 
 %% 6.6
-test_4() ->
+test("4") ->
     io:format("6.6 genotype <-> phenotype mapping~n"),
     PhenoType =
         enn_network:new(
@@ -93,11 +86,11 @@ test_4() ->
                         #{ count => 1, type => {actuator, [stdout]} }]
            }),
     GenoType = enn_network:backup(PhenoType),
-    io:format("PhenoType: ~p~nGenoType: ~p~n", [PhenoType, GenoType]).
+    io:format("PhenoType: ~p~nGenoType: ~p~n", [PhenoType, GenoType]);
 
 %% 7.6.5
-test_5() ->
-    io:format("7.6.5 \"hellow world\" of NN problem, the XOR operation (with fixed weights; still, no leraning)~n"),
+test("5") ->
+    io:format("7.6.5 \"hellow world\" of NN problem, the XOR operation (with fixed weights; still, no learning)~n"),
     #{ 1 := [X1, X2] } = NN =
         enn_network:load([[#{ id => {1, 1}, type => {sensor, [msg]} },
                            #{ id => {1, 2}, type => {sensor, [msg]} }],
@@ -113,4 +106,33 @@ test_5() ->
          receive after 100 ->
                          io:format("applied input ~p : ~p~n", [V1, V2])
                  end
-     end || {V1, V2} <- [{0, 0}, {0, 1}, {1, 0}, {1, 1}]].
+     end || {V1, V2} <- [{0, 0}, {0, 1}, {1, 0}, {1, 1}]];
+
+test("6") ->
+    io:format("7.6.5 \"hellow world\" of NN problem, the XOR operation (with fixed weights; still, no learning) using enn_env to interact with the network~n"),
+    NN =
+        enn_network:load([[#{ id => {1, 1}, type => {sensor, [{env, x1}]} },
+                           #{ id => {1, 2}, type => {sensor, [{env, x2}]} }],
+                          [#{ id => {2, 1}, type => {neuron, [#{ af => hardlim, bias => -0.01 }]}, sources => [{{1, 1}, 1}] },
+                           #{ id => {2, 1}, type => {neuron, [#{ af => hardlim, bias => -0.01 }]}, sources => [{{1, 2}, 1}] }],
+                          [#{ id => {3, 1}, type => {neuron, [#{ af => hardlim, bias => -0.01, thld => 0.5 }]}, sources => [{2, 0.4}] }],
+                          [#{ id => {4, 1}, type => {neuron, [#{ af => hardlim, bias => -0.01, thld => 0.5 }]}, sources => [{2, 0.7}, {3, -1.0}] }],
+                          [#{ id => {5, 1}, type => {actuator, [{env, y}]}, sources => [{4, 1.0}] }]
+                         ]),
+    io:format("Phenotype: ~p~n~n", [NN]),
+    Env = enn_env:new(),
+    ok = enn_env:connect(NN, Env),
+    ok = enn_env:connect(self(), y, Env),
+    [begin
+         io:format("apply input: ~p,~p~n", [V1, V2]),
+         enn_env:update(x1, V1, Env),
+         enn_env:update(x2, V2, Env),
+         receive
+             {Env, env, y, Y} ->
+                 io:format("output: ~p xor ~p = ~p~n", [V1, V2, Y])
+         after 100 ->
+                 io:format("no change in environment for y..~n")
+         end
+     end || {V1, V2} <- [{0, 0}, {0, 1}, {1, 0}, {1, 1}]];
+
+test(X) -> io:format("Unknown test: ~p~n", [X]).

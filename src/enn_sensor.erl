@@ -10,10 +10,17 @@ new(rng) ->
       fun () ->
               rng_loop([])
       end);
+
 new(msg) ->
     spawn_link(
       fun () ->
               msg_loop([])
+      end);
+
+new({env, K}) ->
+    spawn_link(
+      fun () ->
+              env_loop(K, [])
       end).
 
 %%%----------------------------------------
@@ -46,4 +53,17 @@ msg_loop(Targets) ->
             msg_loop(Targets);
         {R, backup} ->
             R ! {self(), backup, #{}}
+    end.
+
+env_loop(Key, Ts) ->
+    receive
+        {T, target} ->
+            env_loop(Key, [T|Ts]);
+        {_, env, Key, X} ->
+            [enn_node:activate(T, X) || T <- Ts],
+            env_loop(Key, Ts);
+        {R, backup} ->
+            R ! {self(), backup, #{}};
+        _ ->
+            env_loop(Key, Ts)
     end.
